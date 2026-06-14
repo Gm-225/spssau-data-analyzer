@@ -806,7 +806,7 @@ function getMethodInfo(methodId) {
             description: '检验多个分类组间的数值均值是否存在显著差异',
             dropZones: [
                 { id: 'y-variable', label: '因变量(数值)', multiple: true },
-                { id: 'x-variable', label: '分组变量(分类)', multiple: false }
+                { id: 'x-variable', label: '分组变量(分类)', multiple: true }
             ]
         },
         'ttest-independent': {
