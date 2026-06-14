@@ -1,4 +1,4 @@
-// 全局变量
+﻿// 全局变量
 let currentData = null;
 let currentMethod = null;
 let analysisResults = [];
@@ -171,7 +171,7 @@ function initializePage() {
         link.addEventListener('click', (e) => {
             e.preventDefault();
             const page = e.currentTarget.dataset.page;
-            showPage(page);
+            if (page) showPage(page);
         });
     });
 
@@ -214,7 +214,7 @@ function showModal(modalId) {
     document.getElementById(modalId).classList.add('active');
 }
 document.addEventListener('click', function(e) {
-    if (e.target.classList.contains('modal') && e.target.classList.contains('active')) {
+    if (e.target.classList.contains('modal')) {
         e.target.classList.remove('active');
     }
 });
@@ -789,8 +789,8 @@ function getMethodInfo(methodId) {
             title: '卡方检验',
             description: '分析两个分类变量之间是否相互独立',
             dropZones: [
-                { id: 'x-variable', label: 'X变量(分类)', multiple: false },
-                { id: 'y-variable', label: 'Y变量(分类)', multiple: false }
+                { id: 'x-variable', label: 'X变量(分类)', multiple: true },
+                { id: 'y-variable', label: 'Y变量(因变量,分类)', multiple: false }
             ]
         },
         'linear-regression': {
@@ -814,7 +814,7 @@ function getMethodInfo(methodId) {
             description: '检验两组独立样本的均值是否存在显著差异',
             dropZones: [
                 { id: 'y-variable', label: '检验变量(数值)', multiple: true },
-                { id: 'x-variable', label: '分组变量(分类, 仅2组)', multiple: false }
+                { id: 'x-variable', label: '分组变量(分类)', multiple: true }
             ]
         },
         'ttest-paired': {
@@ -1354,123 +1354,78 @@ function performChiSquareTest(variables) {
 // Independent T-Test
 function performIndependentTTest(variables) {
     const yVars = variables['y-variable'] || [];
-    const xVar = (variables['x-variable'] || [])[0];
-    if (yVars.length === 0 || !xVar) throw new Error('请选择检验变量和分组变量');
+    const xVars = variables['x-variable'] || [];
+    if (yVars.length === 0 || xVars.length === 0) throw new Error('请选择检验变量和分组变量');
     
-    const validData = getValidRows([xVar]);
-    const groupsSet = new Set(validData.map(r => r[xVar]));
-    const groups = Array.from(groupsSet).sort((a, b) => String(a).localeCompare(String(b), 'zh-CN', { numeric: true }));
+    const fmt = (v, d) => { d = d || 2; return Number.isFinite(v) ? v.toFixed(d) : '-'; };
+    const fmtP = (v) => { if (!Number.isFinite(v)) return '-'; return v < 0.001 ? '<0.001' : v.toFixed(3); };
+    const stars = (v) => { if (!Number.isFinite(v)) return ''; return v < 0.001 ? '***' : (v < 0.01 ? '**' : (v < 0.05 ? '*' : '')); };
     
-    if (groups.length !== 2) throw new Error(`分组变量必须恰好有2个类别 (当前有${groups.length}个)`);
-    
-    const g1 = groups[0];
-    const g2 = groups[1];
-    const formatStat = (value, digits = 2) => Number.isFinite(value) ? value.toFixed(digits) : '-';
-    const formatP = (value) => {
-        if (!Number.isFinite(value)) return '-';
-        if (value < 0.001) return '<0.001';
-        return value.toFixed(3);
-    };
-    const getStars = (value) => {
-        if (!Number.isFinite(value)) return '';
-        if (value < 0.001) return '***';
-        if (value < 0.01) return '**';
-        if (value < 0.05) return '*';
-        return '';
-    };
-    const getApproxStarsByT = (tValue) => {
-        if (!Number.isFinite(tValue)) return '';
-        if (tValue >= 3.291) return '***';
-        if (tValue >= 2.576) return '**';
-        if (tValue >= 1.960) return '*';
-        return '';
-    };
-    
-    let html = `<h3>独立 T 检验</h3>
-        <table class="result-table">
-        <thead><tr><th>解释变量</th><th>${xVar}</th><th>N</th><th>M</th><th>SD</th><th>t</th><th>P</th></tr></thead><tbody>`;
-        
-    const results = [];
-    yVars.forEach(yVar => {
-        const vData = getValidRows([yVar, xVar]);
-        const arr1 = vData.filter(r => r[xVar] === g1).map(r => Number(r[yVar]));
-        const arr2 = vData.filter(r => r[xVar] === g2).map(r => Number(r[yVar]));
-        const n1 = arr1.length;
-        const n2 = arr2.length;
-        
-        const mean1 = n1 > 0 ? arr1.reduce((a,b)=>a+b,0) / n1 : NaN;
-        const mean2 = n2 > 0 ? arr2.reduce((a,b)=>a+b,0) / n2 : NaN;
-        const var1 = n1 > 1 ? arr1.reduce((a,b)=>a+Math.pow(b-mean1,2),0) / (n1 - 1) : 0;
-        const var2 = n2 > 1 ? arr2.reduce((a,b)=>a+Math.pow(b-mean2,2),0) / (n2 - 1) : 0;
-        
-        let t = NaN;
-        let pValue = 1;
-        if (n1 > 1 && n2 > 1) {
-            const df = n1 + n2 - 2;
-            const pooledVar = ((n1 - 1) * var1 + (n2 - 1) * var2) / df;
-            const se = Math.sqrt(pooledVar * (1 / n1 + 1 / n2));
-            if (se > 0) {
-                t = (mean1 - mean2) / se;
-                if (window.jStat) {
-                    pValue = (1 - jStat.studentt.cdf(Math.abs(t), df)) * 2;
-                }
-            } else if (mean1 === mean2) {
-                t = 0;
-                pValue = 1;
-            } else {
-                pValue = 0;
+    function runTTest(xVar) {
+        const validData = getValidRows([xVar]);
+        const groupsSet = new Set(validData.map(r => r[xVar]));
+        const groups = Array.from(groupsSet).sort((a, b) => String(a).localeCompare(String(b), 'zh-CN', { numeric: true }));
+        if (groups.length !== 2) return { error: '分组变量"' + xVar + '"必须恰好有2个类别 (当前有' + groups.length + '个)', results: [] };
+        const g1 = groups[0], g2 = groups[1];
+        const tResults = [];
+        yVars.forEach(yVar => {
+            const vData = getValidRows([yVar, xVar]);
+            const arr1 = vData.filter(r => r[xVar] === g1).map(r => Number(r[yVar]));
+            const arr2 = vData.filter(r => r[xVar] === g2).map(r => Number(r[yVar]));
+            const n1 = arr1.length, n2 = arr2.length;
+            const mean1 = n1 > 0 ? arr1.reduce((a,b)=>a+b,0)/n1 : NaN;
+            const mean2 = n2 > 0 ? arr2.reduce((a,b)=>a+b,0)/n2 : NaN;
+            const var1 = n1 > 1 ? arr1.reduce((a,b)=>a+Math.pow(b-mean1,2),0)/(n1-1) : 0;
+            const var2 = n2 > 1 ? arr2.reduce((a,b)=>a+Math.pow(b-mean2,2),0)/(n2-1) : 0;
+            let t = NaN, pValue = 1;
+            if (n1 > 1 && n2 > 1) {
+                const df = n1 + n2 - 2;
+                const pooledVar = ((n1-1)*var1 + (n2-1)*var2) / df;
+                const se = Math.sqrt(pooledVar * (1/n1 + 1/n2));
+                if (se > 0) { t = (mean1 - mean2) / se; if (window.jStat) pValue = (1 - jStat.studentt.cdf(Math.abs(t), df)) * 2; }
+                else if (mean1 === mean2) { t = 0; pValue = 1; }
             }
-        }
-        const star = getStars(pValue);
-        
-        results.push({ variable: yVar, pValue: pValue });
-
-        html += `<tr>
-            <td rowspan="2">${yVar}</td>
-            <td>${g1}</td>
-            <td>${n1}</td>
-            <td>${formatStat(mean1)}</td>
-            <td>${formatStat(Math.sqrt(var1))}</td>
-            <td rowspan="2">${formatStat(t, 3)}</td>
-            <td rowspan="2">${formatP(pValue)}${star}</td>
-        </tr>
-        <tr>
-            <td>${g2}</td>
-            <td>${n2}</td>
-            <td>${formatStat(mean2)}</td>
-            <td>${formatStat(Math.sqrt(var2))}</td>
-        </tr>`;
-    });
-    html += '</tbody></table>';
-    html += `<p style="margin-top:8px; color:#555; font-size:13px;">注：*P&lt;0.05，**P&lt;0.01，***P&lt;0.001。</p>`;
-    
-    const significantVars = results.filter(r => r.pValue < 0.05).map(r => r.variable);
-    const nonSignificantVars = results.filter(r => r.pValue >= 0.05).map(r => r.variable);
-
-    let interpretation = `<strong>结果解读：</strong>从上表可知，利用t检验（全称为独立样本t检验）去研究${xVar}对于${yVars.join(', ')}共${yVars.length}项的差异性，从上表可以看出：`;
-    
-    if (nonSignificantVars.length === yVars.length) {
-         interpretation += `不同${xVar}样本对于${yVars.join(', ')}全部均不会表现出显著性(p>0.05)，意味着不同${xVar}样本对于${yVars.join(', ')}全部均表现出一致性，并没有差异性。<br>`;
-         interpretation += `总结可知：不同${xVar}样本对于${yVars.join(', ')}全部均不会表现出显著性差异。`;
-    } else if (significantVars.length === yVars.length) {
-         interpretation += `不同${xVar}样本对于${yVars.join(', ')}全部均表现出显著性差异(p<0.05)，意味着不同${xVar}样本对于${yVars.join(', ')}均存在差异。<br>`;
-         interpretation += `总结可知：不同${xVar}样本对于${yVars.join(', ')}全部均表现出显著性差异。`;
-    } else {
-         if (nonSignificantVars.length > 0) {
-             interpretation += `不同${xVar}样本对于${nonSignificantVars.join(', ')}均不会表现出显著性(p>0.05)；`;
-         }
-         if (significantVars.length > 0) {
-             interpretation += `不同${xVar}样本对于${significantVars.join(', ')}表现出显著性差异(p<0.05)。<br>`;
-         }
-         interpretation += `总结可知：不同${xVar}样本对于${significantVars.join(', ')}表现出显著性差异，而对于${nonSignificantVars.join(', ')}则无显著性差异。`;
+            tResults.push({ variable: yVar, n1, n2, mean1, mean2, sd1: Math.sqrt(var1), sd2: Math.sqrt(var2), t, pValue, df: n1+n2-2 });
+        });
+        return { xVar, g1, g2, results: tResults };
     }
-
-    html += `<div class="interpretation-text" contenteditable="true" style="padding:15px; border:1px dashed #ccc; border-radius:5px; margin-top:15px; background:#fefefe; outline:none; font-size:14px; line-height:1.6; color:#555;">${interpretation}</div>`;
     
-    return { method: '独立样本T检验', html };
-}
-
-// Paired T-Test
+    if (xVars.length === 1) {
+        const tr = runTTest(xVars[0]);
+        if (tr.error) throw new Error(tr.error);
+        let html = '<h3>独立样本 T 检验</h3><p>* p<0.05，** p<0.01，*** p<0.001</p>';
+        html += '<table class="result-table"><thead><tr><th>变量</th><th>分组</th><th>N</th><th>M</th><th>SD</th><th>t</th><th>df</th><th>p</th></tr></thead><tbody>';
+        tr.results.forEach(r => {
+            html += '<tr><td rowspan="2">' + r.variable + '</td><td>' + tr.g1 + '</td><td>' + r.n1 + '</td><td>' + fmt(r.mean1) + '</td><td>' + fmt(r.sd1) + '</td><td rowspan="2">' + fmt(r.t, 3) + '</td><td rowspan="2">' + r.df + '</td><td rowspan="2">' + fmtP(r.pValue) + stars(r.pValue) + '</td></tr>';
+            html += '<tr><td>' + tr.g2 + '</td><td>' + r.n2 + '</td><td>' + fmt(r.mean2) + '</td><td>' + fmt(r.sd2) + '</td></tr>';
+        });
+        html += '</tbody></table>';
+        let interp = '独立T检验结果：<br>';
+        tr.results.forEach(r => { interp += r.variable + '：t(' + r.df + ')=' + fmt(r.t, 3) + '，p=' + fmtP(r.pValue) + stars(r.pValue) + '，差异' + (r.pValue < 0.05 ? '显著' : '不显著') + '<br>'; });
+        html += '<div class="interpretation-text" contenteditable="true">' + interp + '</div>';
+        return { method: '独立样本T检验', html };
+    } else {
+        const allResults = xVars.map(xv => runTTest(xv));
+        const errors = allResults.filter(r => r.error);
+        if (errors.length > 0) throw new Error(errors.map(e => e.error).join('; '));
+        let html = '<h3>独立样本 T 检验（多组对比）</h3><p>* p<0.05，** p<0.01，*** p<0.001</p>';
+        html += '<table class="result-table"><thead><tr><th>分组变量</th><th>检验变量</th><th>组别</th><th>N</th><th>M</th><th>SD</th><th>t</th><th>df</th><th>p</th></tr></thead><tbody>';
+        allResults.forEach(tr => {
+            tr.results.forEach((r, ri) => {
+                html += '<tr>';
+                if (ri === 0) html += '<td rowspan="' + (tr.results.length * 2) + '">' + tr.xVar + '</td>';
+                html += '<td rowspan="2">' + r.variable + '</td><td>' + tr.g1 + '</td><td>' + r.n1 + '</td><td>' + fmt(r.mean1) + '</td><td>' + fmt(r.sd1) + '</td>';
+                html += '<td rowspan="2">' + fmt(r.t, 3) + '</td><td rowspan="2">' + r.df + '</td><td rowspan="2">' + fmtP(r.pValue) + stars(r.pValue) + '</td>';
+                html += '</tr><tr><td>' + tr.g2 + '</td><td>' + r.n2 + '</td><td>' + fmt(r.mean2) + '</td><td>' + fmt(r.sd2) + '</td></tr>';
+            });
+        });
+        html += '</tbody></table>';
+        let interp = '独立T检验多组对比结果：<br>';
+        allResults.forEach(tr => { tr.results.forEach(r => { interp += tr.xVar + '/' + r.variable + '：t(' + r.df + ')=' + fmt(r.t, 3) + '，p=' + fmtP(r.pValue) + stars(r.pValue) + '，差异' + (r.pValue < 0.05 ? '显著' : '不显著') + '<br>'; }); });
+        html += '<div class="interpretation-text" contenteditable="true">' + interp + '</div>';
+        return { method: '独立样本T检验', html };
+    }
+}Test
 function performPairedTTest(variables) {
     const pair1Vars = variables['pair1'] || [];
     const pair2Vars = variables['pair2'] || [];
@@ -1571,187 +1526,93 @@ function performPairedTTest(variables) {
 // ANOVA
 function performANOVA(variables) {
     const yVars = variables['y-variable'] || [];
-    const yVarList = Array.isArray(yVars) ? yVars : [yVars];
-    const xVar = (variables['x-variable'] || [])[0];
-    if (yVarList.length === 0 || !xVar) throw new Error('请选择因变量和分组变量');
+    const xVars = variables['x-variable'] || [];
+    if (yVars.length === 0 || xVars.length === 0) throw new Error('请选择检验变量和分组变量');
     
-    const validData = getValidRows([xVar]);
-    const groupsSet = new Set(validData.map(r => r[xVar]));
-    const groups = Array.from(groupsSet).sort((a, b) => String(a).localeCompare(String(b), 'zh-CN', { numeric: true }));
-    const formatStat = (value, digits = 2) => Number.isFinite(value) ? value.toFixed(digits) : '-';
-    const formatP = (value) => {
-        if (!Number.isFinite(value)) return '-';
-        if (value < 0.001) return '<0.001';
-        return value.toFixed(3);
-    };
-    const getStars = (value) => {
-        if (!Number.isFinite(value)) return '';
-        if (value < 0.001) return '***';
-        if (value < 0.01) return '**';
-        if (value < 0.05) return '*';
-        return '';
-    };
-    const getApproxStarsByT = (tValue) => {
-        if (!Number.isFinite(tValue)) return '';
-        if (tValue >= 3.291) return '***';
-        if (tValue >= 2.576) return '**';
-        if (tValue >= 1.960) return '*';
-        return '';
-    };
+    const fmt = (v, d) => { d = d || 2; return Number.isFinite(v) ? v.toFixed(d) : '-'; };
+    const fmtP = (v) => { if (!Number.isFinite(v)) return '-'; return v < 0.001 ? '<0.001' : v.toFixed(3); };
+    const stars = (v) => { if (!Number.isFinite(v)) return ''; return v < 0.001 ? '***' : (v < 0.01 ? '**' : (v < 0.05 ? '*' : '')); };
     
-    let html = `<h3>方差分析</h3>
-        <table class="result-table">
-            <thead><tr><th>解释变量</th><th>${xVar}</th><th>N</th><th>M</th><th>SD</th><th>F</th><th>P</th><th>多重比较</th></tr></thead><tbody>`;
-    
-    const results = [];
-    const groupIndexMap = new Map(groups.map((group, index) => [group, index + 1]));
-
-    yVarList.forEach(yVar => {
-        const rowData = getValidRows([yVar, xVar]);
-        const groupVals = {};
-        groups.forEach(g => groupVals[g] = []);
-        let totalSum = 0;
-        
-        rowData.forEach(row => {
-            const g = row[xVar];
-            const val = Number(row[yVar]);
-            groupVals[g].push(val);
-            totalSum += val;
-        });
-        
-        const k = groups.length;
-        const n = rowData.length;
-        const grandMean = totalSum / n;
-        
-        let ssBetween = 0;
-        let ssWithin = 0;
-        
-        const stats = {};
-        
-        groups.forEach(g => {
-            const arr = groupVals[g];
-            const gN = arr.length;
-            const gMean = gN > 0 ? arr.reduce((a,b)=>a+b,0) / gN : NaN;
-            const gVar = gN > 1 ? arr.reduce((a,b)=>a+Math.pow(b-gMean,2),0) / (gN - 1) : 0;
-            stats[g] = { n: gN, mean: gMean, std: Math.sqrt(gVar) };
-            
-            ssBetween += gN * Math.pow(gMean - grandMean, 2);
-            arr.forEach(val => {
-                ssWithin += Math.pow(val - gMean, 2);
+    function runAnova(xVar) {
+        const validData = getValidRows([xVar]);
+        const groupsSet = new Set(validData.map(r => r[xVar]));
+        const groups = Array.from(groupsSet).sort((a, b) => String(a).localeCompare(String(b), 'zh-CN', { numeric: true }));
+        if (groups.length < 2) return { error: '分组变量"' + xVar + '"至少需要2个类别', results: [] };
+        const aResults = [];
+        yVars.forEach(yVar => {
+            const vData = getValidRows([yVar, xVar]);
+            const gData = {};
+            groups.forEach(g => gData[g] = []);
+            vData.forEach(row => {
+                const g = row[xVar], v = Number(row[yVar]);
+                if (Number.isFinite(v) && gData[g]) gData[g].push(v);
             });
-        });
-        
-        const dfBetween = k - 1;
-        const dfWithin = n - k;
-        const msBetween = dfBetween > 0 ? ssBetween / dfBetween : NaN;
-        const msWithin = dfWithin > 0 ? ssWithin / dfWithin : NaN;
-        const f = (Number.isFinite(msBetween) && Number.isFinite(msWithin) && msWithin > 0) ? msBetween / msWithin : NaN;
-        
-        let pValue = 1;
-        if (window.jStat && Number.isFinite(f)) {
-            pValue = 1 - jStat.centralF.cdf(f, dfBetween, dfWithin);
-        }
-        const star = getStars(pValue);
-        let multiComparison = '-';
-
-        if (groups.length > 2 && Number.isFinite(msWithin) && msWithin > 0) {
-            const pairResults = [];
-            for (let i = 0; i < groups.length; i++) {
-                for (let j = i + 1; j < groups.length; j++) {
-                    const groupA = groups[i];
-                    const groupB = groups[j];
-                    const statsA = stats[groupA];
-                    const statsB = stats[groupB];
-                    if (statsA.n === 0 || statsB.n === 0) continue;
-
-                    const lsdSe = Math.sqrt(msWithin * (1 / statsA.n + 1 / statsB.n));
-                    if (!Number.isFinite(lsdSe) || lsdSe === 0) continue;
-
-                    const pairT = Math.abs(statsA.mean - statsB.mean) / lsdSe;
-                    let pairStar = '';
-                    if (window.jStat && dfWithin > 0) {
-                        const pairP = (1 - jStat.studentt.cdf(pairT, dfWithin)) * 2;
-                        pairStar = getStars(pairP);
-                    } else {
-                        pairStar = getApproxStarsByT(pairT);
-                    }
-                    if (pairStar) {
-                        const higherGroup = statsA.mean >= statsB.mean ? groupA : groupB;
-                        const lowerGroup = statsA.mean >= statsB.mean ? groupB : groupA;
-                        pairResults.push(`${groupIndexMap.get(higherGroup)}&gt;${groupIndexMap.get(lowerGroup)}${pairStar}`);
-                    }
-                }
-            }
-            if (pairResults.length > 0) {
-                multiComparison = pairResults.join('，');
-            }
-        }
-        
-        groups.forEach((g, index) => {
-            html += `<tr>`;
-            if (index === 0) {
-                html += `<td rowspan="${groups.length}">${yVar}</td>`;
-            }
-            html += `<td>${g}</td>
-                <td>${stats[g].n}</td>
-                <td>${formatStat(stats[g].mean)}</td>
-                <td>${formatStat(stats[g].std)}</td>`;
-            if (index === 0) {
-                html += `<td rowspan="${groups.length}">${formatStat(f, 3)}</td>
-                    <td rowspan="${groups.length}">${formatP(pValue)}${star}</td>
-                    <td rowspan="${groups.length}">${multiComparison}</td>`;
-            }
-            html += `</tr>`;
-        });
-        
-        results.push({ yVar, f, pValue, star, stats, multiComparison });
-    });
-    
-    html += `</tbody></table>`;
-    const groupNote = groups.map(group => `${groupIndexMap.get(group)}.${group}`).join('；');
-    const noteText = groups.length > 2
-        ? `注：${groupNote}；多重比较使用 LSD 法；*P&lt;0.05 为“有显著差异”，**P&lt;0.01 为“有非常显著差异”，***P&lt;0.001 为“有极其显著差异”。`
-        : `注：${groupNote}；*P&lt;0.05，**P&lt;0.01，***P&lt;0.001。`;
-    html += `<p style="margin-top:8px; color:#555; font-size:13px;">${noteText}</p>`;
-    
-    let interpretation = `<strong>结果解读：</strong><br>`;
-    interpretation += `对比不同${xVar}在多种${yVarList.join('/')}维度上的差异：<br>`;
-    
-    results.forEach(res => {
-        interpretation += `- **${res.yVar}**：`;
-        if (res.pValue > 0.05) {
-            interpretation += `${xVar}差异不显著 (p > 0.05)。`;
-        } else {
-            interpretation += `${xVar}存在${res.pValue < 0.01 ? '极' : ''}显著差异 (p=${formatP(res.pValue)}${res.star})。`;
-            // 简单的比较逻辑：找出最大和最小
-            let maxG = '', maxMean = -Infinity;
-            let minG = '', minMean = Infinity;
+            const k = groups.filter(g => gData[g].length > 0).length;
+            const N = Object.values(gData).reduce((s, arr) => s + arr.length, 0);
+            if (N <= k) return;
+            const grandMean = Object.values(gData).flat().reduce((s, v) => s + v, 0) / N;
+            let SSbetween = 0, SSwithin = 0;
             groups.forEach(g => {
-                if (res.stats[g].mean > maxMean) { maxMean = res.stats[g].mean; maxG = g; }
-                if (res.stats[g].mean < minMean) { minMean = res.stats[g].mean; minG = g; }
+                const arr = gData[g]; const n = arr.length;
+                if (n === 0) return;
+                const m = arr.reduce((s, v) => s + v, 0) / n;
+                SSbetween += n * Math.pow(m - grandMean, 2);
+                SSwithin += arr.reduce((s, v) => s + Math.pow(v - m, 2), 0);
             });
-            interpretation += `${maxG}均值 (${maxMean.toFixed(2)}) 显著高于${minG} (${minMean.toFixed(2)})。`;
-            if (res.multiComparison && res.multiComparison !== '-') {
-                interpretation += `LSD 多重比较结果为 ${res.multiComparison.replaceAll('&gt;', '>')}。`;
-            }
-        }
-        interpretation += `<br>`;
-    });
-
-    interpretation += `综合来看，${xVar}在`;
-    const sigVars = results.filter(r => r.pValue < 0.05).map(r => r.yVar);
-    const nonSigVars = results.filter(r => r.pValue >= 0.05).map(r => r.yVar);
+            const dfBetween = k - 1, dfWithin = N - k;
+            const MSbetween = dfBetween > 0 ? SSbetween / dfBetween : 0;
+            const MSwithin = dfWithin > 0 ? SSwithin / dfWithin : 1;
+            const F = MSbetween / MSwithin;
+            let pValue = 1;
+            if (window.jStat && dfBetween > 0 && dfWithin > 0) pValue = 1 - jStat.centralF.cdf(F, dfBetween, dfWithin);
+            const groupStats = groups.map(g => { const arr = gData[g]; const n = arr.length; const m = n > 0 ? arr.reduce((s, v) => s + v, 0) / n : 0; const sd = n > 1 ? Math.sqrt(arr.reduce((s, v) => s + Math.pow(v - m, 2), 0) / (n - 1)) : 0; return { group: g, n, mean: m, sd }; });
+            aResults.push({ variable: yVar, N, k, SSbetween, SSwithin, dfBetween, dfWithin, MSbetween, MSwithin, F, pValue, groupStats });
+        });
+        return { xVar, groups, results: aResults };
+    }
     
-    if (sigVars.length > 0) interpretation += `${sigVars.join('、')}存在显著差异`;
-    if (sigVars.length > 0 && nonSigVars.length > 0) interpretation += `，而在`;
-    if (nonSigVars.length > 0) interpretation += `${nonSigVars.join('、')}差异不显著。`;
-    
-    html += `<div class="interpretation-text" contenteditable="true" style="padding:15px; border:1px dashed #ccc; border-radius:5px; margin-top:15px; background:#fefefe; outline:none; font-size:14px; line-height:1.6; color:#555;">${interpretation}</div>`;
-    
-    return { method: '方差分析', html };
-}
-
-// Linear Regression
+    if (xVars.length === 1) {
+        const ar = runAnova(xVars[0]);
+        if (ar.error) throw new Error(ar.error);
+        let html = '<h3>单因素方差分析（One-way ANOVA）</h3><p>* p<0.05，** p<0.01，*** p<0.001</p>';
+        ar.results.forEach(r => {
+            html += '<p><strong>' + r.variable + '</strong></p>';
+            html += '<table class="result-table"><thead><tr><th>组别</th><th>N</th><th>M</th><th>SD</th></tr></thead><tbody>';
+            r.groupStats.forEach(gs => {
+                html += '<tr><td>' + gs.group + '</td><td>' + gs.n + '</td><td>' + fmt(gs.mean) + '</td><td>' + fmt(gs.sd) + '</td></tr>';
+            });
+            html += '</tbody></table>';
+            html += '<p>F(' + r.dfBetween + ',' + r.dfWithin + ')=' + fmt(r.F, 3) + '，p=' + fmtP(r.pValue) + stars(r.pValue) + '，差异' + (r.pValue < 0.05 ? '显著' : '不显著') + '</p>';
+        });
+        let interp = '单因素方差分析结果：<br>';
+        ar.results.forEach(r => { interp += r.variable + '：F(' + r.dfBetween + ',' + r.dfWithin + ')=' + fmt(r.F, 3) + '，p=' + fmtP(r.pValue) + stars(r.pValue) + '，差异' + (r.pValue < 0.05 ? '显著' : '不显著') + '<br>'; });
+        html += '<div class="interpretation-text" contenteditable="true">' + interp + '</div>';
+        return { method: '方差分析', html };
+    } else {
+        const allAr = xVars.map(xv => runAnova(xv));
+        const errors = allAr.filter(r => r.error);
+        if (errors.length > 0) throw new Error(errors.map(e => e.error).join('; '));
+        let html = '<h3>单因素方差分析（多组对比）</h3><p>* p<0.05，** p<0.01，*** p<0.001</p>';
+        html += '<table class="result-table"><thead><tr><th>分组变量</th><th>检验变量</th><th>组别</th><th>N</th><th>M</th><th>SD</th><th>F</th><th>df</th><th>p</th></tr></thead><tbody>';
+        allAr.forEach(ar => {
+            ar.results.forEach((r, ri) => {
+                r.groupStats.forEach((gs, gi) => {
+                    html += '<tr>';
+                    if (ri === 0 && gi === 0) html += '<td rowspan="' + ar.results.reduce((s, rr) => s + rr.groupStats.length, 0) + '">' + ar.xVar + '</td>';
+                    if (gi === 0) html += '<td rowspan="' + r.groupStats.length + '">' + r.variable + '</td>';
+                    html += '<td>' + gs.group + '</td><td>' + gs.n + '</td><td>' + fmt(gs.mean) + '</td><td>' + fmt(gs.sd) + '</td>';
+                    if (gi === 0) html += '<td rowspan="' + r.groupStats.length + '">' + fmt(r.F, 3) + '</td><td rowspan="' + r.groupStats.length + '">' + r.dfBetween + ',' + r.dfWithin + '</td><td rowspan="' + r.groupStats.length + '">' + fmtP(r.pValue) + stars(r.pValue) + '</td>';
+                    html += '</tr>';
+                });
+            });
+        });
+        html += '</tbody></table>';
+        let interp = '方差分析多组对比结果：<br>';
+        allAr.forEach(ar => { ar.results.forEach(r => { interp += ar.xVar + '/' + r.variable + '：F(' + r.dfBetween + ',' + r.dfWithin + ')=' + fmt(r.F, 3) + '，p=' + fmtP(r.pValue) + stars(r.pValue) + '，差异' + (r.pValue < 0.05 ? '显著' : '不显著') + '<br>'; }); });
+        html += '<div class="interpretation-text" contenteditable="true">' + interp + '</div>';
+        return { method: '方差分析', html };
+    }
+}sion
 function performLinearRegression(variables) {
     const yVar = (variables['y-variable'] || [])[0];
     const xVars = variables['x-variables'] || [];
