@@ -1,0 +1,341 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPSSAU - 智能数据分析平台</title>
+    <link rel="stylesheet" href="styles.css?v=1781340961">
+    <script src="lib/xlsx.full.min.js"></script>
+    <script src="lib/papaparse.min.js"></script>
+    <script src="lib/jstat.min.js"></script>
+    <script src="lib/FileSaver.min.js"></script>
+    <script src="lib/html-docx.min.js"></script>
+    <script src="lib/lucide.min.js"></script>
+    <script>
+        // 兼容旧代码中的延迟加载调用
+        window.loadXLSX = function(cb) { if(cb) cb(); };
+        window.loadPapaParse = function(cb) { if(cb) cb(); };
+        window.loadJStat = function(cb) { if(cb) cb(); };
+        window.loadWordExportLibs = function(cb) { if(cb) cb(); };
+    </script>
+</head>
+<body>
+    <header class="top-header">
+        <div class="header-container">
+            <div class="logo-section">
+                <h1 class="logo">SPSSAU</h1>
+                <span class="tagline">智能数据分析平台</span>
+            </div>
+            <nav class="main-nav">
+                <a href="#" class="nav-link active" data-page="home"><i data-lucide="home"></i> 首页</a>
+                <a href="#" class="nav-link" data-page="upload"><i data-lucide="upload"></i> 数据上传</a>
+                <a href="#" class="nav-link" data-page="analysis"><i data-lucide="bar-chart-2"></i> 数据分析</a>
+                <a href="#" class="nav-link" data-page="results"><i data-lucide="file-text"></i> 分析结果</a>
+                <a href="#" class="nav-link help-btn"><i data-lucide="help-circle"></i> 帮助</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <!-- 首页 -->
+        <section id="homePage" class="page-section active">
+            <div class="hero-section">
+                <div class="hero-content">
+                    <h1 class="hero-title">数据分析，如此简单</h1>
+                    <p class="hero-subtitle">无需编程，拖拽操作，一键生成专业统计分析报告</p>
+                    <button class="cta-button" onclick="showPage('upload')">
+                        <i data-lucide="upload"></i> 开始分析
+                    </button>
+                </div>
+            </div>
+            <div class="features-section">
+                <h2 class="section-title">核心功能</h2>
+                <div class="features-grid">
+                    <div class="feature-item">
+                        <div class="feature-icon"><i data-lucide="bar-chart-2"></i></div>
+                        <h3>数据分析方法</h3>
+                        <p>描述统计、T检验、方差分析、回归分析、卡方检验等20+种方法</p>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon"><i data-lucide="database"></i></div>
+                        <h3>数据处理功能</h3>
+                        <p>支持Excel/CSV数据导入，自动识别变量类型，智能缺失值处理</p>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon"><i data-lucide="pie-chart"></i></div>
+                        <h3>可视化图表</h3>
+                        <p>自动生成专业统计图表，支持自定义样式与导出</p>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon"><i data-lucide="file-type"></i></div>
+                        <h3>规范化输出</h3>
+                        <p>一键导出Word/CSV报告，含APA格式表格与自动解读</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 上传页面 -->
+        <section id="uploadPage" class="page-section">
+            <div class="upload-container">
+                <div class="upload-header">
+                    <h2><i data-lucide="cloud-upload"></i> 数据上传</h2>
+                    <p>支持 Excel (.xlsx/.xls) 和 CSV (.csv) 格式</p>
+                </div>
+                <div class="upload-area-container">
+                    <div id="uploadZone" class="upload-zone">
+                        <i data-lucide="cloud-upload"></i>
+                        <h3>拖拽文件到此处或点击上传</h3>
+                        <p>支持 .xlsx / .xls / .csv 格式</p>
+                        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none;">
+                        <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                            <i data-lucide="upload"></i> 选择文件
+                        </button>
+                    </div>
+                    <div class="upload-tips">
+                        <h4><i data-lucide="lightbulb"></i> 上传提示</h4>
+                        <ul>
+                            <li>第一行应为变量名称（表头）</li>
+                            <li>数据从第二行开始</li>
+                            <li>避免合并单元格</li>
+                            <li>数值型变量请确保为数字格式</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="data-preview-section" id="dataPreviewSection" style="display:none;">
+                    <div class="preview-header">
+                        <div class="preview-header-left">
+                            <h3><i data-lucide="table"></i> 数据预览</h3>
+                            <div class="preview-stats" id="previewStats">0 行 × 0 列</div>
+                        </div>
+                        <div class="preview-header-actions">
+                            <button class="btn btn-secondary" onclick="clearSavedData()">
+                                <i data-lucide="trash-2"></i> 清除数据
+                            </button>
+                            <button class="btn btn-primary" onclick="showPage('analysis')">
+                                <i data-lucide="arrow-right"></i> 前往分析
+                            </button>
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="previewTable" class="result-table"></table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 分析页面 -->
+        <section id="analysisPage" class="page-section">
+            <div class="analysis-container">
+                <div class="analysis-sidebar">
+                    <h3><i data-lucide="list"></i> 分析方法</h3>
+
+                    <div class="method-category">
+                        <div class="category-header" onclick="toggleCategory(this)">
+                            <i data-lucide="layers"></i>
+                            <span>通用方法</span>
+                            <i data-lucide="chevron-down" class="toggle-icon"></i>
+                        </div>
+                        <div class="method-list">
+                            <div class="method-item" data-method="frequency"><i data-lucide="bar-chart"></i><span>频数分析</span></div>
+                            <div class="method-item" data-method="descriptive"><i data-lucide="file-text"></i><span>描述性分析</span></div>
+                            <div class="method-item" data-method="chi-square"><i data-lucide="grid-2x2"></i><span>卡方检验</span></div>
+                            <div class="method-item" data-method="correlation"><i data-lucide="link"></i><span>相关分析</span></div>
+                            <div class="method-item" data-method="linear-regression"><i data-lucide="trending-up"></i><span>线性回归</span></div>
+                            <div class="method-item" data-method="anova"><i data-lucide="sliders-horizontal"></i><span>方差分析</span></div>
+                            <div class="method-item" data-method="ttest-independent"><i data-lucide="arrows-right-left"></i><span>独立T检验</span></div>
+                            <div class="method-item" data-method="ttest-paired"><i data-lucide="arrow-left-right"></i><span>配对T检验</span></div>
+                        </div>
+                    </div>
+
+                    <div class="method-category">
+                        <div class="category-header" onclick="toggleCategory(this)">
+                            <i data-lucide="clipboard-list"></i>
+                            <span>问卷研究</span>
+                            <i data-lucide="chevron-down" class="toggle-icon"></i>
+                        </div>
+                        <div class="method-list collapsed">
+                            <div class="method-item" data-method="reliability"><i data-lucide="shield-check"></i><span>信度分析</span></div>
+                            <div class="method-item" data-method="validity"><i data-lucide="check-circle"></i><span>效度分析</span></div>
+                            <div class="method-item" data-method="cfa"><i data-lucide="check-square"></i><span>验证因子分析</span></div>
+                        </div>
+                    </div>
+
+                    <div class="method-category">
+                        <div class="category-header" onclick="toggleCategory(this)">
+                            <i data-lucide="share-2"></i>
+                            <span>结构方程模型</span>
+                            <i data-lucide="chevron-down" class="toggle-icon"></i>
+                        </div>
+                        <div class="method-list collapsed">
+                            <div class="method-item" data-method="sem"><i data-lucide="network"></i><span>搭建SEM模型</span></div>
+                            <div class="method-item" data-method="moderation"><i data-lucide="sliders"></i><span>调节作用</span></div>
+                            <div class="method-item" data-method="mediation"><i data-lucide="arrows-up-from-line"></i><span>中介作用</span></div>
+                        </div>
+                    </div>
+
+                    <div class="method-category">
+                        <div class="category-header" onclick="toggleCategory(this)">
+                            <i data-lucide="pie-chart"></i>
+                            <span>可视化</span>
+                            <i data-lucide="chevron-down" class="toggle-icon"></i>
+                        </div>
+                        <div class="method-list collapsed">
+                            <div class="method-item" data-method="ipa"><i data-lucide="target"></i><span>IPA分析</span></div>
+                            <div class="method-item" data-method="path-analysis"><i data-lucide="git-branch"></i><span>路径分析</span></div>
+                        </div>
+                    </div>
+
+                    <div class="method-category">
+                        <div class="category-header" onclick="toggleCategory(this)">
+                            <i data-lucide="rocket"></i>
+                            <span>进阶方法</span>
+                            <i data-lucide="chevron-down" class="toggle-icon"></i>
+                        </div>
+                        <div class="method-list collapsed">
+                            <div class="method-item" data-method="cluster"><i data-lucide="boxes"></i><span>聚类分析</span></div>
+                            <div class="method-item" data-method="efa"><i data-lucide="search"></i><span>探索因子分析</span></div>
+                            <div class="method-item" data-method="binary-logit"><i data-lucide="binary"></i><span>二元Logit回归</span></div>
+                            <div class="method-item" data-method="partial-correlation"><i data-lucide="divide"></i><span>偏相关分析</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="variables-workspace">
+                    <div class="variables-panel">
+                        <div class="variables-header">
+                            <h4>变量筛选 <span id="selectedCount" class="variables-count">(已选 0)</span></h4>
+                            <button class="btn btn-sm btn-secondary" onclick="clearVariableSelection()">清除</button>
+                        </div>
+                        <p class="variables-hint">按住 Ctrl 多选 / Shift 连续选</p>
+                        <div id="variablesList" class="variables-grid">
+                            <p class="no-data">请先上传数据文件</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="analysis-workspace">
+                    <div class="workspace-header">
+                        <h3 id="currentMethodTitle">分析变量</h3>
+                        <p id="currentMethodDesc">请选择需要统计的变量</p>
+                    </div>
+                    <div id="dragDropArea" class="analysis-variables-area">
+                        <div class="selected-variables" id="selectedVariables"></div>
+                    </div>
+                    <div class="analysis-actions">
+                        <button id="runAnalysisBtn" class="btn btn-primary">
+                            <i data-lucide="play"></i> 开始分析
+                        </button>
+                        <button id="clearSelectionBtn" class="btn-clear" title="清空选择">
+                            <i data-lucide="x"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 分析结果页面 -->
+        <section id="resultsPage" class="page-section">
+            <div class="results-container">
+                <div class="results-header">
+                    <h2><i data-lucide="bar-chart-2"></i> 分析结果</h2>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="exportResults()">
+                            <i data-lucide="download"></i> 导出结果
+                        </button>
+                        <button class="btn btn-secondary" id="addToReportBtn" onclick="addToReport()" style="display:none;">
+                            <i data-lucide="plus"></i> 添加到报告
+                        </button>
+                        <button class="btn btn-secondary" onclick="copyResults()">
+                            <i data-lucide="copy"></i> 复制结果
+                        </button>
+                    </div>
+                </div>
+                <div class="results-layout">
+                    <div class="analysis-history-panel" style="flex:0 0 200px;min-width:200px;max-width:200px;display:flex;flex-direction:column;overflow:hidden;background:#fff;border:1px solid #E2E8F0;border-radius:12px;">
+                        <div class="history-header" style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-bottom:1px solid #E2E8F0;background:#F1F5F9;flex-shrink:0;min-height:36px;flex-wrap:nowrap;overflow:hidden;">
+                            <h3 style="font-size:12px;font-weight:600;color:#1E293B;white-space:nowrap;margin:0;flex-shrink:0;display:flex;align-items:center;gap:4px;"><i data-lucide="file-text" style="color:#4F46E5;width:14px;height:14px;flex-shrink:0;"></i> 报告项目</h3>
+                            <div class="history-actions" style="display:flex;gap:4px;flex-shrink:0;flex-wrap:nowrap;">
+                                <button id="clearReportBtn" class="btn btn-sm btn-secondary" onclick="clearAllReports()" title="清空" style="height:24px;padding:0 6px;font-size:11px;white-space:nowrap;flex-shrink:0;">
+                                    <i data-lucide="trash-2"></i> 清空
+                                </button>
+                                <button id="exportSelectedReportsBtn" class="btn btn-sm btn-secondary" onclick="exportSelectedReports()" title="导出选中" style="height:24px;padding:0 6px;font-size:11px;white-space:nowrap;flex-shrink:0;">
+                                    <i data-lucide="file-type"></i> 批量导出
+                                </button>
+                            </div>
+                        </div>
+                        <div class="history-list-header">
+                            <label class="history-select-all"><input type="checkbox" id="selectAllReportsCheckbox" onchange="toggleSelectAllReports(this)"> 全选</label>
+                            <span class="history-count" id="reportCount">0 项分析</span>
+                        </div>
+                        <div class="history-list" id="reportList">
+                            <div class="no-history">
+                                <i data-lucide="file-text"></i>
+                                <p>暂无报告项目</p>
+                                <small>添加有价值的分析到报告</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="results-display-panel">
+                        <div id="fullResults" class="full-results">
+                            <div class="no-results">
+                                <i data-lucide="bar-chart-2"></i>
+                                <p>请选择左侧历史分析项目查看结果</p>
+                                <small>或进行新的数据分析</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <p>正在处理数据...</p>
+        </div>
+    </div>
+
+    <div id="messageToast" class="message-toast"></div>
+
+    <div id="helpModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i data-lucide="help-circle"></i> 使用帮助</h3>
+                <button class="modal-close" onclick="closeModal('helpModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <h4>如何使用SPSSAU？</h4>
+                <ol>
+                    <li><strong>上传数据：</strong>点击"数据上传"，选择Excel或CSV文件</li>
+                    <li><strong>选择方法：</strong>在"数据分析"页面选择合适的分析方法</li>
+                    <li><strong>添加变量：</strong>使用快捷键(Shift/Ctrl)多选变量后，点击"添加已选"按钮将变量放入对应的分析区域</li>
+                    <li><strong>开始分析：</strong>点击"开始分析"按钮获得结果</li>
+                    <li><strong>查看结果：</strong>在"分析结果"页面查看详细报告</li>
+                </ol>
+                <h4>支持的分析方法</h4>
+                <ul>
+                    <li>描述性统计 / 频数分析</li>
+                    <li>相关分析 / 偏相关分析</li>
+                    <li>T检验（独立/配对）</li>
+                    <li>方差分析 / 卡方检验</li>
+                    <li>线性回归 / 二元Logit回归</li>
+                    <li>信度分析 / 效度分析 / EFA / CFA</li>
+                    <li>中介作用 / 调节作用 / 路径分析 / SEM</li>
+                    <li>聚类分析 / IPA分析</li>
+                </ul>
+                <h4>导出功能</h4>
+                <p>支持将分析结果导出为CSV表格或Word文档。在"分析结果"页面，您可以导出当前查看的结果；在左侧"报告项目"列表中，您可以勾选多个项目进行批量导出。</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js?v=1781340961"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            if (window.lucide) lucide.createIcons();
+        });
+    </script>
+</body>
+</html>
