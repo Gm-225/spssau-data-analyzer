@@ -5917,7 +5917,7 @@ window.addToReport = function() {
     if (!currentAnalysisResult) return;
     
     // 防止重复添加同一个结果
-    if (reportItems.length > 0 && reportItems[reportItems.length - 1].id === currentAnalysisResult.id) {
+    if (currentAnalysisResult.id && reportItems.length > 0 && reportItems[reportItems.length - 1].id === currentAnalysisResult.id) {
         return;
     }
     
@@ -6005,7 +6005,9 @@ function paginateResultTables() {
 
 window.changeTablePage = function(btn, delta) {
     const nav = btn.parentNode;
-    const table = nav.previousSibling; 
+    let table = nav.previousElementSibling;
+    // Fallback: if previousElementSibling failed, try previousSibling
+    if (!table || !table.tagName) { table = nav.previousSibling; while (table && table.nodeType !== 1) table = table.previousSibling; } 
     const rows = Array.from(table.querySelectorAll('tbody tr'));
     const pageSize = 20;
     const totalPages = Math.ceil(rows.length / pageSize);
