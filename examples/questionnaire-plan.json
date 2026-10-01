@@ -1,0 +1,102 @@
+{
+  "schemaVersion": "2.0",
+  "planId": "personalized-ad-avoidance-v1",
+  "title": "广告个性化感知对消费者回避的影响",
+  "source": "https://v.wjx.cn/vm/tP3MniL.aspx",
+  "sampleIdColumn": "编号",
+  "excludedColumns": [],
+  "demographics": [
+    { "column": "性别", "labels": { "1": "男性", "2": "女性" } },
+    { "column": "年龄", "labels": { "1": "18-25岁", "2": "26-35岁", "3": "36-45岁", "4": "45岁以上" } },
+    { "column": "受教育程度", "labels": { "1": "高中及以下", "2": "专科", "3": "本科", "4": "硕士及以上" } },
+    { "column": "职业", "labels": { "1": "学生", "2": "个体户、创业者", "3": "公司职员", "4": "国家机关、党政群体、企事业单位人员", "5": "其他" } },
+    { "column": "收入", "labels": { "1": "3000以下", "2": "3000-4000", "3": "4001-5000", "4": "5000以上" } }
+  ],
+  "scale": {
+    "min": 1,
+    "max": 5,
+    "labels": { "1": "很不满意", "2": "不满意", "3": "一般", "4": "满意", "5": "很满意" },
+    "missingPolicy": "dimension-mean-requires-all-items",
+    "confirmed": true
+  },
+  "dimensions": [
+    {
+      "id": "PP", "name": "感知个性化", "columnPrefix": "PP", "expectedItems": 4,
+      "items": [
+        "PP1_平台会依据我近期浏览过的内容持续调整广告推荐方式",
+        "PP2_我接收到的广告通常能够准确对应当前兴趣和实际需求",
+        "PP3_广告中呈现的商品或服务与我的个人偏好保持较高一致性",
+        "PP4_平台推送广告时能够体现对我以往选择习惯的持续了解"
+      ],
+      "reverseItems": [], "reverseItemsConfirmed": true
+    },
+    {
+      "id": "AA", "name": "广告回避", "columnPrefix": "AA", "expectedItems": 3,
+      "items": [
+        "AA1_看到这类个性化广告时我会主动跳过或尽快关闭相关页面",
+        "AA2_即使广告内容与我有关我仍会减少停留并避免进一步点击",
+        "AA3_当平台频繁推送个性化广告时我会刻意回避相关品牌信息"
+      ],
+      "reverseItems": [], "reverseItemsConfirmed": true
+    },
+    {
+      "id": "PC", "name": "隐私担忧", "columnPrefix": "PC", "expectedItems": 4,
+      "items": [
+        "PC1_我担心平台为投放广告收集了超出必要范围的个人信息",
+        "PC2_我担心自己的浏览和购买记录会被用于并未明确说明的用途",
+        "PC3_个性化广告让我担心个人数据可能被不同机构共享或滥用",
+        "PC4_我不确定平台是否真正采取了足够措施保护我的个人隐私"
+      ],
+      "reverseItems": [], "reverseItemsConfirmed": true
+    },
+    {
+      "id": "PI", "name": "感知侵扰", "columnPrefix": "PI", "expectedItems": 5,
+      "items": [
+        "PI1_个性化广告经常打断我原本正在进行的浏览或信息获取活动",
+        "PI2_平台对我兴趣的判断过于具体时会让我产生被监视的不适感",
+        "PI3_同类广告反复出现会让我觉得个人网络空间受到了明显侵扰",
+        "PI4_这些广告出现的时间和位置常常使我感到难以主动控制体验",
+        "PI5_个性化广告的持续追踪感会影响我对平台整体体验的评价"
+      ],
+      "reverseItems": [], "reverseItemsConfirmed": true
+    },
+    {
+      "id": "PV", "name": "广告感知价值", "columnPrefix": "PV", "expectedItems": 4,
+      "items": [
+        "PV1_个性化广告能够帮助我更快发现具有实际价值的商品或服务",
+        "PV2_与普通广告相比个性化推荐能够减少我筛选信息所花费的时间",
+        "PV3_当推荐准确时我认为用部分偏好信息交换便利是可以接受的",
+        "PV4_总体而言个性化广告为我的购买决策提供了有帮助的信息"
+      ],
+      "reverseItems": [], "reverseItemsConfirmed": true
+    }
+  ],
+  "model": {
+    "type": "parallel-mediation-with-direct-path-moderation",
+    "processEquivalent": "Model 5 with parallel mediators",
+    "x": "PP",
+    "y": "AA",
+    "predictors": ["PP", "PC", "PI", "PV"],
+    "parallelMediators": ["PC", "PI"],
+    "moderator": "PV",
+    "moderatedPath": "PP->AA",
+    "controls": [],
+    "centering": ["PP", "PV"],
+    "bootstrapSamples": 5000,
+    "confidenceLevel": 0.95
+  },
+  "analysisOrder": [
+    "data-quality",
+    "frequency",
+    "item-descriptive",
+    "reliability",
+    "efa",
+    "dimension-correlation",
+    "model"
+  ],
+  "humanConfirmations": [],
+  "confirmation": {
+    "confirmed": true,
+    "confirmedAtUtc": "2026-07-31T00:00:00.000Z"
+  }
+}

@@ -1,1 +1,158 @@
-{"name":"spssau-desktop","version":"1.0.0","description":"SPSSAU Desktop","main":"main.js","scripts":{"start":"electron .","build":"electron-builder --win"},"author":"SPSSAU","license":"MIT","devDependencies":{"electron":"^42.4.0","electron-builder":"^26.15.2"},"build":{"appId":"com.spssau.desktop","productName":"SPSSAU","directories":{"output":"dist"},"files":["index.html","script.js","styles.css","main.js","preload.js","lib"],"win":{"target":[{"target":"nsis","arch":["x64"]}]},"nsis":{"oneClick":false,"allowToChangeInstallationDirectory":true}}}
+{
+  "name": "spssau-desktop",
+  "version": "2.1.0",
+  "description": "AI 数据分析器 - 本地科学计算与报告自动化",
+  "type": "module",
+  "main": "main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "api": "python -m services.analysis_api.app",
+    "test:api": "python -m unittest discover -s services/analysis_api/tests -v",
+    "test:scientific": ".venv\\Scripts\\python.exe scripts\\verify_sample_analysis.py",
+    "test:v2": ".venv\\Scripts\\python.exe scripts\\verify_v2_template.py",
+    "test:safety": ".venv\\Scripts\\python.exe scripts\\verify_p0_safety.py",
+    "test:e2e": "node scripts\\e2e-electron.mjs",
+    "test:packaged": "node scripts\\e2e-packaged.mjs",
+    "test:delivery": "npm run build && npm run test:scientific && npm run test:e2e",
+    "test": "npm run test:api && npm run test:scientific && npm run test:v2 && npm run test:safety && npm run build",
+    "preview": "vite preview",
+    "electron:dev": "node scripts/dev-electron.js",
+    "runtime:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts\\build-science-runtime.ps1",
+    "amos:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts\\build-amos-bridge.ps1",
+    "amos:configure": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts\\configure-amos.ps1",
+    "test:amos": "npm run amos:build && .venv\\Scripts\\python.exe scripts\\verify_amos_bridge.py",
+    "package:win": "npm run build && electron-builder --win",
+    "electron:build": "npm run amos:build && npm run runtime:build && npm run package:win",
+    "verify:installable": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts\\verify-installable.ps1",
+    "start": "electron ."
+  },
+  "author": "AI Data Analyzer",
+  "license": "MIT",
+  "dependencies": {
+    "@radix-ui/react-avatar": "^1.1.11",
+    "@radix-ui/react-collapsible": "^1.1.12",
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-dropdown-menu": "^2.1.16",
+    "@radix-ui/react-hover-card": "^1.1.15",
+    "@radix-ui/react-progress": "^1.1.8",
+    "@radix-ui/react-scroll-area": "^1.2.10",
+    "@radix-ui/react-select": "^2.2.6",
+    "@radix-ui/react-separator": "^1.1.8",
+    "@radix-ui/react-slot": "^1.2.4",
+    "@radix-ui/react-switch": "^1.2.6",
+    "@radix-ui/react-tabs": "^1.1.13",
+    "@radix-ui/react-toggle": "^1.1.10",
+    "@radix-ui/react-toggle-group": "^1.1.11",
+    "@radix-ui/react-tooltip": "^1.2.8",
+    "@tailwindcss/vite": "^4.0.15",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.562.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwind-merge": "^3.4.0",
+    "tailwindcss": "^4.0.15",
+    "tw-animate-css": "^1.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.4.0",
+    "electron": "^42.5.0",
+    "electron-builder": "^26.15.2",
+    "playwright-core": "^1.54.2",
+    "typescript": "^5.8.2",
+    "vite": "^6.4.0"
+  },
+  "build": {
+    "appId": "com.spssau.desktop",
+    "productName": "AI数据分析器",
+    "directories": {
+      "output": "release"
+    },
+    "asar": true,
+    "files": [
+      "dist/**/*",
+      "main.cjs",
+      "preload.js"
+    ],
+    "extraResources": [
+      {
+        "from": "build/science-runtime/questionnaire-engine",
+        "to": "runtime/questionnaire-engine",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "build/amos-bridge",
+        "to": "amos-bridge",
+        "filter": [
+          "amos-bridge.exe"
+        ]
+      },
+      {
+        "from": "services/questionnaire_pipeline.py",
+        "to": "pipeline/questionnaire_pipeline.py"
+      },
+      {
+        "from": "examples/questionnaire-plan.json",
+        "to": "config/questionnaire-plan.json"
+      },
+      {
+        "from": "assets/fonts",
+        "to": "fonts",
+        "filter": [
+          "NotoSansSC-Regular.ttf",
+          "NotoSansSC-Bold.ttf"
+        ]
+      },
+      {
+        "from": "build/science-runtime/runtime-manifest.json",
+        "to": "runtime-manifest.json"
+      },
+      {
+        "from": "assets/branding/app-icon-1024.png",
+        "to": "app-icon.png"
+      },
+      {
+        "from": "build/legal",
+        "to": "licenses",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "icon": "assets/branding/app-icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "assets/branding/app-icon.ico",
+      "uninstallerIcon": "assets/branding/app-icon.ico",
+      "installerHeaderIcon": "assets/branding/app-icon.ico",
+      "artifactName": "AI-Data-Analyzer-${version}-x64-Setup.${ext}"
+    },
+    "portable": {
+      "unpackDirName": false,
+      "artifactName": "AI-Data-Analyzer-${version}-x64-Portable.${ext}"
+    }
+  }
+}

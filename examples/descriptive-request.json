@@ -1,0 +1,16 @@
+{
+  "methodId": "descriptive",
+  "source": "example",
+  "data": {
+    "headers": ["score", "group"],
+    "rows": [
+      { "score": 72, "group": "A" },
+      { "score": 81, "group": "A" },
+      { "score": 90, "group": "B" }
+    ]
+  },
+  "variables": {
+    "analysis-variables": ["score"]
+  }
+}
+

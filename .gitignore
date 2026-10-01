@@ -26,3 +26,14 @@ yarn-error.log*
 *.tmp
 *.temp
 .cache/
+
+# Local analysis service state
+data/
+__pycache__/
+*.pyc
+*.tsbuildinfo
+.venv/
+build/
+release/
+release-*/
+outputs/

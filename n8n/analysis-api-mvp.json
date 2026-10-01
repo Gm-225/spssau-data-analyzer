@@ -1,0 +1,79 @@
+{
+  "name": "Analysis API - Descriptive MVP",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "analysis-jobs-v1",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "e9711040-15f4-498e-bb84-d86c325379ee",
+      "name": "Receive Analysis Request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-480, 0],
+      "webhookId": "668eedcc-e4ce-44da-864d-0b722a21d85f"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.ANALYSIS_API_URL || 'http://host.docker.internal:8765') + '/v1/analysis-jobs' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.ANALYSIS_API_KEY }}"
+            },
+            {
+              "name": "Idempotency-Key",
+              "value": "={{ $json.headers?.['x-request-id'] || $execution.id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "id": "080bf44a-ab65-47db-90bb-110d7837fce1",
+      "name": "Run Analysis API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-240, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "a42fe62f-559e-4493-89f4-6adbbd252dbc",
+      "name": "Return Analysis Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [0, 0]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Receive Analysis Request": {
+      "main": [[{"node": "Run Analysis API", "type": "main", "index": 0}]]
+    },
+    "Run Analysis API": {
+      "main": [[{"node": "Return Analysis Result", "type": "main", "index": 0}]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "9c1a9194-ec4f-4968-9cc9-b94183b5e892",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
+

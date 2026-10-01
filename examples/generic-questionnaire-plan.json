@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "2.0",
+  "planId": "generic-satisfaction-loyalty-v2",
+  "title": "满意度与感知价值对忠诚度的影响",
+  "sampleIdColumn": "编号",
+  "excludedColumns": [],
+  "demographics": [
+    {
+      "column": "性别",
+      "labels": {
+        "男性": "男性",
+        "女性": "女性"
+      }
+    }
+  ],
+  "scale": {
+    "min": 1,
+    "max": 5,
+    "labels": {
+      "1": "非常不同意",
+      "2": "不同意",
+      "3": "一般",
+      "4": "同意",
+      "5": "非常同意"
+    },
+    "missingPolicy": "dimension-mean-requires-all-items",
+    "confirmed": true
+  },
+  "dimensions": [
+    { "id": "SAT", "name": "满意度", "columnPrefix": "SAT", "expectedItems": 3, "items": ["SAT1", "SAT2", "SAT3"], "reverseItems": [], "reverseItemsConfirmed": true },
+    { "id": "VAL", "name": "感知价值", "columnPrefix": "VAL", "expectedItems": 3, "items": ["VAL1", "VAL2", "VAL3"], "reverseItems": [], "reverseItemsConfirmed": true },
+    { "id": "LOY", "name": "忠诚度", "columnPrefix": "LOY", "expectedItems": 3, "items": ["LOY1", "LOY2", "LOY3"], "reverseItems": [], "reverseItemsConfirmed": true }
+  ],
+  "model": {
+    "type": "multiple-regression",
+    "x": "SAT",
+    "y": "LOY",
+    "predictors": ["SAT", "VAL"],
+    "controls": [],
+    "centering": [],
+    "bootstrapSamples": 5000,
+    "confidenceLevel": 0.95
+  },
+  "analysisOrder": [
+    "data-quality",
+    "frequency",
+    "item-descriptive",
+    "reliability",
+    "efa",
+    "dimension-correlation",
+    "model"
+  ],
+  "humanConfirmations": [],
+  "confirmation": {
+    "confirmed": true,
+    "confirmedAtUtc": "2026-07-31T00:00:00.000Z"
+  }
+}
